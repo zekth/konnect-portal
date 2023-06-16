@@ -4,10 +4,12 @@ import dns from 'dns'
 import vue from '@vitejs/plugin-vue'
 import svgLoader from 'vite-svg-loader'
 import vueJsx from '@vitejs/plugin-vue-jsx'
+import openGraph from './vite-plugin-portal-opengraph'
+import fs from 'fs'
 
 const path = require('path')
 
-function mutateCookieAttributes (proxy) {
+function mutateCookieAttributes(proxy) {
   proxy.on('proxyRes', function (proxyRes, req, res) {
     if (proxyRes.headers['set-cookie']) {
       proxyRes.headers['set-cookie'] = (proxyRes.headers['set-cookie']).map(h => {
@@ -17,12 +19,27 @@ function mutateCookieAttributes (proxy) {
   })
 }
 
-function setHostHeader (proxy) {
+function setHostHeader(proxy) {
   const host = new URL(process.env.VITE_PORTAL_API_URL).hostname
 
   proxy.on('proxyReq', function (proxyRes) {
     proxyRes.setHeader('host', host)
   })
+}
+
+function getOgPlugin () {
+  const ogFilePath = path.join(__dirname, 'opengraph.json')
+  if (!fs.existsSync(ogFilePath)) { return undefined }
+
+  try {
+    const og = JSON.parse(fs.readFileSync(ogFilePath, 'utf-8'))
+
+    return openGraph(og)
+  } catch (e) {
+    console.error(e)
+
+    return undefined
+  }
 }
 
 export default ({ command, mode }) => {
@@ -59,7 +76,8 @@ export default ({ command, mode }) => {
         }
       ),
       vueJsx(),
-      svgLoader()
+      svgLoader(),
+      getOgPlugin()
     ],
     resolve: {
       alias: {
